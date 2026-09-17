@@ -1,9 +1,0 @@
-venv/
-.ipynb_checkpoints/
-__pycache__/
-*.pyc
-.DS_Store
-MP1Specs.pdf
-scripts/
-figures/
-.gitignore
