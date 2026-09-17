@@ -11,29 +11,19 @@ in [MP1Specs.pdf](MP1Specs.pdf).
 ```
 .
 ├── Restaurant.xlsx              # Raw client data (proprietary — do not add new data to it)
-├── MP1Specs.pdf                 # Assignment brief: deliverables, report sections, field definitions
 ├── log.md                       # Running decision log — why each cleaning/analysis choice was made
-├── requirements.txt              # Pinned Python dependencies
-├── venv/                        # Local virtual environment (not tracked in git)
+├── requirements.txt             # Pinned Python dependencies
 │
-├── scripts/                     # Pipeline as plain .py files
-│   ├── 01_clean_data.py         #   Phase 2: typo fixes, invalid-value detection, group-wise imputation
-│   └── 02_eda_partial.py        #   Phase 3 (partial): summary stats + first-pass charts
-│
-├── notebooks/                   # Same pipeline, notebook form (for interactive exploration)
+├── notebooks/                   # Cleaning + EDA pipeline, notebook form (for interactive exploration)
 │   ├── 01_clean_data.ipynb
 │   └── 02_eda.ipynb
 │
-├── data/                        # Generated outputs (not raw — reproducible from scripts/01)
-│   ├── restaurant_clean_with_na.csv   # Typos fixed; invalid values left as NaN (no imputation)
-│   └── restaurant_clean_final.csv     # Above + imputed + derived TipPct column — used by all EDA
-│
-└── figures/                     # Chart outputs from scripts/02_eda_partial.py
-    ├── 01_amount_tippct_distribution.png
-    ├── 02_tippct_by_day_time.png
-    ├── 03_tippct_by_smoker.png
-    └── 04_party_volume_day_time.png
+└── data/                        # Generated outputs (not raw — reproducible from notebooks/01)
+    ├── restaurant_clean_with_na.csv   # Typos fixed; invalid values left as NaN (no imputation)
+    └── restaurant_clean_final.csv     # Above + imputed + derived TipPct column — used by all EDA
 ```
+
+Not tracked in git (see `.gitignore`): `venv/`, `MP1Specs.pdf`, `scripts/`, `figures/`.
 
 ## Data fields
 
