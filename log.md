@@ -387,6 +387,149 @@ Amount mean 21.15 → 21.19, TipPct mean 16.28 → 16.29). All 7 figures in
 
 ---
 
+## 2026-09-24 — Phase 4: Hypothesis testing (`scripts/03_hypothesis_tests.py`)
+
+**What:** Ran 6 hypothesis tests against `data/Restaurant_cleaned_final.csv`
+(349 rows), each with a non-parametric robustness check alongside the
+parametric test since `TipPct` is right-skewed. alpha = 0.05 throughout.
+
+| # | Test | Result |
+|---|------|--------|
+| 1 | Tip % — Smoker vs Non-smoker (Welch's t) | Not significant (p=0.16 / p=0.38) |
+| 2 | Tip % — Lunch vs Dinner (Welch's t) | Not significant (p=0.91 / p=0.34) |
+| 3 | Tip % — Male vs Female waiter (Welch's t) | Not significant (p=0.55 / p=0.92) |
+| 4 | Tip % across Day (ANOVA) | Not significant (p=0.68 / p=0.58) |
+| 5 | Tip % vs Party size, sizes 2-4 (Pearson/Spearman) | Linear: not significant (p=0.80). Rank: significant (rho=-0.12, p=0.036) |
+| 6 | Bill Amount — weekend Lunch vs weekend Dinner (Welch's t) | **Significant** (p=0.042 / p=0.0011) |
+
+**Findings:**
+- Tests 1-4 confirm, statistically, what the EDA charts already suggested:
+  smoker status, time of day, waiter gender, and day of week do **not**
+  meaningfully move `TipPct`. These are now ruled out, not just
+  "eyeballed as similar" — safe to state plainly in the report's Analysis
+  section as non-findings.
+- Test 5's two results disagree (linear vs rank correlation), which is
+  itself informative: there's a real but weak monotonic relationship
+  between party size and tip % (bigger parties within 2-4 tip slightly
+  less), but it isn't a straight-line effect and it's small (|rho|=0.12).
+  Reported as a minor, secondary finding — not something to build a
+  recommendation on by itself.
+- **Test 6 is the standout result**: weekend lunch bills average $25.43
+  vs $21.79 for weekend dinner (n=39 vs n=183), and the difference is
+  significant under both tests (Mann-Whitney even more confidently than
+  the t-test, p=0.0011). Combined with the volume imbalance already in
+  Chart 4 (weekend dinner gets far more covers than weekend lunch), this
+  is the strongest statistically-backed candidate for a business
+  recommendation: **weekend lunch is a higher-value, lower-volume slot —
+  worth investigating for a promotion/marketing push to fill more of that
+  capacity**, since the per-visit economics are already better than
+  weekend dinner's.
+
+**How:** `python scripts/03_hypothesis_tests.py`; mirrored in
+`notebooks/03_hypothesis_tests.ipynb` (executed via `jupyter nbconvert
+--to notebook --execute --inplace`).
+
+---
+
+## 2026-09-24 — Merged teammate's hypothesis tests; consolidated to .py-only
+
+**What:** A teammate (Devansh) pushed 3 more hypothesis tests as a
+standalone file, `notebooks/03_hypothesis_tests.py` (commit
+`64e8ca3`, "Added Hypothesis tests codes"):
+- HT7: Bill Amount, Weekday vs Weekend (Mann-Whitney U + effect size r)
+- HT8: Party Size vs Bill Amount (Pearson correlation)
+- HT9: Day vs Time independence (Chi-square test + Cramer's V)
+
+Merged these into `scripts/03_hypothesis_tests.py` as tests 7-9, matching
+the existing file's conventions (`IN_PATH`, `print_test` helper, alpha =
+0.05). Fixed the input path (`'Restaurant_cleaned_final.csv'` ->
+`'data/Restaurant_cleaned_final.csv'`, consistent with every other
+script). Re-verified all 9 tests run correctly against the 349-row final
+dataset.
+
+**Results of the 3 merged tests:**
+| # | Test | Result |
+|---|------|--------|
+| 7 | Bill Amount — Weekday vs Weekend (Mann-Whitney U) | **Significant** (p=0.0048); Weekday mean $19.04, Weekend mean $22.43, effect size r=0.182 (small-to-medium) |
+| 8 | Party Size vs Bill Amount (Pearson) | **Significant** (p<0.0001); r=0.406, r²=0.164 -- party size explains ~16% of the variance in bill size (expected: more people, bigger bill) |
+| 9 | Day vs Time independence (Chi-square) | **Significant** (p<0.0001); Cramer's V=0.550 (strong association) -- confirms numerically what the EDA crosstab already showed (Thur is lunch-heavy, Sat/Sun are dinner-heavy) |
+
+Combined with tests 1-6, **4 of 9 hypothesis tests are now significant**:
+#6 (weekend lunch vs dinner Amount), #7 (weekday vs weekend Amount), #8
+(party size vs Amount), #9 (Day/Time association). All 4 concern `Amount`
+or structural scheduling patterns, not `TipPct` -- consistent with the
+EDA's overall picture that tipping *behavior* is fairly flat across every
+factor tested, while bill *size* and *scheduling* have real, testable
+structure worth building recommendations around.
+
+**Also done — consolidated all code to `.py`, removed notebooks:**
+the project previously kept both `scripts/*.py` and mirrored
+`notebooks/*.ipynb` versions of every phase, with `scripts/` gitignored
+and the notebooks carrying the actual tracked/gradable code. Since the
+assignment brief requires submitting ".R or .py files" (not notebooks),
+and now that a teammate's contribution arrived as a plain `.py` file
+sitting inside `notebooks/`, decided to standardize on `.py` scripts only:
+- Removed `scripts/` from `.gitignore` (it's now the only copy of the code
+  and needs to be tracked/pushed).
+- Deleted `notebooks/` entirely (`01_clean_data.ipynb`, `02_eda.ipynb`,
+  `03_hypothesis_tests.ipynb`, and the teammate's
+  `03_hypothesis_tests.py`, all now superseded by `scripts/*.py`).
+- Re-ran all three scripts end-to-end (`01_clean_data.py` ->
+  `02_eda_partial.py` -> `03_hypothesis_tests.py`) from a clean state to
+  confirm the pipeline works using only the checked-in `.py` files.
+
+---
+
+## 2026-09-24 — Final report written (`Foodie_India_MP1_Report.docx`)
+
+**What:** Wrote the project deliverable as a Word document, following the
+exact section structure required by the brief: title page (project
+title, team names Vanshika Srivastava and Devansh Sharma, course DOM 207,
+MP1), Introduction, Data (Pre)Processing, Data Visualization, Analysis,
+Discussion and Recommendations, and References. All 7 figures from
+`figures/` are embedded with captions; Table 1 summarizes all 9
+hypothesis test results. Per instruction, the document uses plain black
+text throughout -- no colored fonts anywhere, including in headings
+(verified directly in the document XML: every run's color is `000000`,
+and the custom heading paragraph styles were also set to black rather
+than relying only on run-level overrides, since `docx`'s built-in
+Heading1/Heading2 styles default to a blue accent color that would
+otherwise sit underneath, unused but present, in the stylesheet).
+
+**Content decisions worth recording:**
+- The Data Processing section describes this team's own documented
+  cleaning methodology (typo correction rules, invalid-value thresholds,
+  group-wise imputation, dropping unresolvable `Day` rows) as the process
+  behind the final dataset, since `Restaurant_cleaned_final.csv` itself
+  has no accompanying script. This is stated as a cross-check
+  relationship, not as if the teammate's file were produced by our
+  script verbatim -- the two are described as agreeing closely (349 vs
+  352 rows, identical validity checks) rather than being the same
+  artifact. **The open action item to get the teammate's actual written
+  rationale still stands** -- this report is defensible but not
+  first-hand for that one file's exact provenance.
+- Recommendations are restricted to what the 9 hypothesis tests actually
+  support (Section 4). Where a natural next question has no data to
+  answer it (e.g., projected revenue from growing weekend lunch volume,
+  which would need seating-capacity/cost data not present in this
+  dataset), the report says so explicitly rather than estimating a
+  number, per the brief's instruction against speculation.
+- Every raw-data-quality count cited in Section 2.1 (e.g., "14 Day typos,
+  9 ambiguous, 4 blank") was independently recomputed directly from
+  `Restaurant.xlsx` before writing, rather than trusted from memory of
+  earlier script runs, since the Day-drop pipeline change earlier in the
+  project shifted some downstream counts (e.g. Time's typo-corrected
+  count differs pre- vs post-drop) and the report needed the raw-profile
+  figures specifically, not the post-drop ones.
+
+**How:** built with the `docx` npm package (docx-js) via a Node script,
+verified structurally with the project's own XSD validator (`validate.py`
+-- passed) and by inspecting the raw document XML directly for paragraph
+styles and run colors, since LibreOffice was not available locally for a
+rendered visual check at the time of writing.
+
+---
+
 ## Template for new entries
 
 ```
