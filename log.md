@@ -252,6 +252,141 @@ mode instead.
 
 ---
 
+## 2026-09-17 — Extended EDA: gender, party size, and revenue-by-slot charts
+
+**What:** Added 3 charts to `scripts/02_eda_partial.py` and
+`notebooks/02_eda.ipynb`, closing out the items explicitly deferred in the
+first EDA pass:
+5. `05_tippct_by_gender.png` — Tip % boxplot, male vs female waiter.
+6. `06_tippct_by_partysize.png` — average Tip % by party size, annotated
+   with each group's `n`.
+7. `07_amount_by_day_time.png` — average bill *Amount* by Day×Time (a
+   revenue view, to pair with the existing party-count/volume view).
+
+**Findings:**
+- **Gender (n=209 Male / 156 Female):** medians and IQRs are nearly
+  identical (median ~14.6-14.7% both); the only difference is a couple of
+  high outliers on the female side, including the same $1.01-bill/166%
+  outlier already flagged in Chart 1. No evidence waiter gender affects
+  tipping — ruled out as a factor, not raised as a lead.
+- **Party size:** sizes 2-4 (the bulk, n=92-206) sit in a stable 13.5-16.8%
+  band. Sizes 1, 5, 6 show much higher averages (30.8%, 36.1%, 16.1%) but
+  rest on **n=11, 7, 3** respectively — too few rows to trust; almost
+  certainly a couple of generous individual tippers, not a real party-size
+  effect. **Decision: any party-size recommendation should be scoped to
+  the 2-4 range only**, and the small-n groups should be nb u tmed as
+  data-limited if mentioned at all, per the same "don't guess/overclaim"
+  policy used during cleaning.
+- **Revenue by Day×Time:** weekday (Thur/Fri) dinners out-earn weekday
+  lunches per bill, but the pattern **flips on weekends** — Sat/Sun lunch
+  bills average higher than Sat/Sun dinner bills, with Sun lunch highest
+  overall (~$28). Cross-checked against slot sizes: Sat lunch n=22, Sun
+  lunch n=17 — smaller than the ~90-100 row dinner slots on those same
+  days, so this reads as a lead worth investigating (a possibly
+  under-served high-value slot) rather than a settled finding, given the
+  smaller sample.
+
+**How:** `python scripts/02_eda_partial.py` (regenerates all 7 figures);
+notebook updated with matching cells + interpretation and re-executed via
+`jupyter nbconvert --to notebook --execute --inplace notebooks/02_eda.ipynb`.
+
+---
+
+## 2026-09-24 — Reworked Day handling: drop unrecoverable rows instead of imputing
+
+> **Supersedes:** the `Day` imputation described in the "Phase 2: Data
+> cleaning" and "Upgraded imputation" entries above no longer happens.
+> Everything else in those entries (Amount/Tip/Gender/Smoker/Time/Partysize
+> handling) is unchanged.
+
+**What:** `Day` previously had 13 rows where no value could be recovered:
+4 originally blank, and 9 with a typed-but-ambiguous value (`S` x5, `SS`,
+`SSS`, `San`, `Ft`) that doesn't map confidently to a single day (e.g.
+`San` is an equally close match to both "Sun" and "Sat" -- a genuine tie,
+not a typo with one obvious fix). These were being imputed via the mode of
+each row's `Time` group. Changed `scripts/01_clean_data.py` (and mirrored
+in `notebooks/01_clean_data.ipynb`) to **drop all 13 of these rows
+entirely** instead, right after the `Day` typo-mapping step, before any
+imputation runs. `Time`'s own imputation (still grouped by `Day`) and every
+downstream step now runs on the reduced dataset.
+
+**Why:** raised as a direct question -- since `Day` truly carries no
+recoverable signal for these rows (unlike, say, a decimal-separator typo in
+`Amount`, which has exactly one sensible reading), is it better to guess a
+value from group context, or to just not have an opinion about that row's
+`Day` at all? Two options were discussed:
+  - keep imputing via the `Time`-group mode (statistically grounded, but
+    means the *same* raw string, e.g. `"S"`, silently becomes a *different*
+    final day depending on the row's `Time` -- confusing to explain/defend
+    in the report without the reader digging into the code)
+  - drop the row (loses the row's other real data -- Amount, Tip, etc. --
+    but avoids fabricating a `Day` value with no real basis)
+  Decision: **drop**, for both the blank and the ambiguous-typo rows.
+  Rationale: with 365 rows total, losing 13 (3.6%) is a small, statable
+  cost, and it keeps the reported `Day` column fully observed data rather
+  than a mix of real and guessed values -- simpler to defend than
+  explaining a same-input-different-output imputation rule.
+
+**Impact:** dataset shrinks from 365 -> **352** rows. Re-ran
+`scripts/01_clean_data.py` and `scripts/02_eda_partial.py`; summary stats
+barely moved (e.g. Amount mean 21.21 -> 21.15, median unchanged at ~19.1;
+TipPct mean 16.16 -> 16.28). Category counts shift slightly (`Day`: Sat 115
+/ Sun 108 / Thur 90 / Fri 39, was Sat 122 / Sun 108 / Thur 96 / Fri 39).
+All 7 figures in `figures/` regenerated against the 352-row dataset.
+
+**How:** replaced the `Day` block's `report["Day: missing/unresolved"]`
+line with an explicit `blank_day` / `ambiguous_day` mask, dropped both via
+`df[~(blank_day | ambiguous_day)].reset_index(drop=True)`, and removed the
+now-dead `impute_categorical_grouped("Day", ["Time"])` call (nothing left
+to impute). Re-executed both notebooks via `jupyter nbconvert --to
+notebook --execute --inplace`.
+
+---
+
+## 2026-09-24 — Adopted teammate-provided file as the team's final dataset
+
+**What:** A teammate pushed `data/Restaurant_cleaned_final.csv` directly
+(commit `8662d3d`, "Add files via upload" — no script or notebook came
+with it). Compared it against this pipeline's own
+`data/restaurant_clean_final.csv` (349 rows vs. 352). Team decision: adopt
+the teammate's file as-is as the actual final dataset for all downstream
+analysis. Repointed `scripts/02_eda_partial.py` and `notebooks/02_eda.ipynb`
+to read `data/Restaurant_cleaned_final.csv` instead. Deleted the old
+`data/restaurant_clean_final.csv` from the repo and added it to
+`.gitignore` (it can still be regenerated locally by
+`scripts/01_clean_data.py` / `notebooks/01_clean_data.ipynb`, kept as an
+independent cross-check, but that output is no longer tracked or used
+downstream).
+
+**Independent validation performed before adopting it** (since its
+cleaning process isn't documented in this repo):
+- 0 missing values in any column.
+- `Gender` ∈ {Male, Female}, `Smoker` ∈ {No, Yes}, `Day` ∈ {Thur, Fri, Sat,
+  Sun}, `Time` ∈ {Lunch, Dinner} — no stray categories.
+- `Partysize` fully within 1–6.
+- No negative `Amount`, no `Tip` > 100.
+- `TipPct` column matches `Tip / Amount * 100` exactly for every row.
+
+**Known discrepancy vs. this pipeline's own output (not yet resolved):**
+row-level diffing found the teammate's file resolves a few ambiguous raw
+values differently than this pipeline does — e.g. raw `Day = "T"` and
+`Day = "Sn"` are treated here as confident matches to `Thur`/`Sun`
+respectively, but appear dropped as unresolved in the teammate's version;
+a row with `Partysize = -2` and blank `Smoker` is imputed here but absent
+there. This means the teammate used a different (undocumented) rule set,
+not just a different random seed or rounding. **Action item: get the
+teammate's cleaning rationale in writing before finalizing the Data
+(pre)processing section of the report** — per the assignment brief
+([MP1Specs.pdf](MP1Specs.pdf)), every cleansing step needs a documented
+justification, and right now this file's don't exist anywhere in the repo.
+
+**Impact:** EDA re-run against the new 349-row file — summary stats
+essentially unchanged from this pipeline's own 352-row version (e.g.
+Amount mean 21.15 → 21.19, TipPct mean 16.28 → 16.29). All 7 figures in
+`figures/` regenerated; `notebooks/02_eda.ipynb` re-executed.
+
+---
+
 ## Template for new entries
 
 ```
